@@ -139,6 +139,16 @@ Create a new file called Microlending.sol in the contracts directory and add the
 
 pragma solidity ^0.8.4;
 
+
+    /**
+        @title Microlending contract
+        @dev This contract allows users to request loans, repay them, deposit and withdraw funds.
+        The loans are stored in a struct and a mapping is used to track user balances.
+        The contract owner is not defined.
+        The contract uses Solidity version 0.8.4.
+        The contract is not licensed.
+    */
+
 contract Microlending {
   struct Loan {
     address borrower;
@@ -151,14 +161,32 @@ contract Microlending {
 
   Loan[] public loans;
   mapping(address => uint256) public balances;
-
+    /**
+        @dev Event emitted when a loan is requested.
+        @param borrower The address of the borrower.
+        @param amount The amount requested for the loan.
+        @param interestRate The interest rate for the loan.
+        @param duration The duration of the loan.
+        @param endTime The timestamp when the loan will end.
+    */
   event LoanRequested(address indexed borrower, uint256 amount, uint256 interestRate, uint256 duration, uint256 endTime);
+    /**
+        @dev Event emitted when a loan is repaid.
+        @param loanId The ID of the loan repaid.
+        @param amount The amount paid back for the loan.
+    */
   event LoanRepaid(uint256 loanId, uint256 amount);
 
+    /**
+
+    @dev Function to request a loan.
+    @param amount The amount requested for the loan.
+    @param interestRate The interest rate for the loan.
+    @param duration The duration of the loan.
+    @notice No return values, but emits a LoanRequested event.
+    */
   function requestLoan(uint256 amount, uint256 interestRate, uint256 duration) external {
-    require(amount > 0, "Amount must be greater than zero");
-    require(interestRate > 0, "Interest rate must be greater than zero");
-    require(duration > 0, "Duration must be greater than zero");
+    require(amount > 0 && interestRate > 0 && duration > 0, "Invalid input values, check that amount, interest rate and duration is greater than 0 ");
 
     uint256 endTime = block.timestamp + duration;
 
@@ -167,11 +195,16 @@ contract Microlending {
     emit LoanRequested(msg.sender, amount, interestRate, duration, endTime);
   }
 
+
+    /**
+        @dev Function to repay a loan.
+        @param loanId The ID of the loan to be repaid.
+        @notice No return values, but emits a LoanRepaid event.
+    */
+
   function repayLoan(uint256 loanId) external {
     Loan storage loan = loans[loanId];
-
-    require(msg.sender == loan.borrower, "Only borrower can repay the loan");
-    require(!loan.repaid, "Loan already repaid");
+    require(loanId < loans.length && msg.sender == loan.borrower && !loan.repaid, "ERROR: Invalid loan ID OR YOU ARE NOT THE ONE THAT BORROWED THE LOAN OR you have already repaid this loan");
 
     uint256 amount = loan.amount + (loan.amount * loan.interestRate / 100);
     balances[msg.sender] -= amount;
@@ -180,15 +213,23 @@ contract Microlending {
     emit LoanRepaid(loanId, amount);
   }
 
+    /**
+        @dev Function to deposit funds.
+        @notice No return values, but increases the user's balance.
+    */
   function deposit() external payable {
     require(msg.value > 0, "Deposit amount must be greater than zero");
 
     balances[msg.sender] += msg.value;
   }
 
+    /**
+        @dev Function to withdraw funds.
+        @param amount The amount to be withdrawn.
+        @notice No return values, but reduces the user's balance and emits a Withdrawal event.
+    */
   function withdraw(uint256 amount) external {
-    require(amount > 0, "Withdraw amount must be greater than zero");
-    require(amount <= balances[msg.sender], "Insufficient balance");
+     require(amount > 0 && amount <= balances[msg.sender], "Invalid withdraw amount");
 
     balances[msg.sender] -= amount;
 
@@ -239,10 +280,8 @@ This publishes a public mapping that links each address's balance to the amount 
 These are two events that the contract emits when a loan is requested or repaid. Events are a way for the contract to communicate with external applications, and can be subscribed to by interested parties.
 
 ```solidity
-  function requestLoan(uint256 amount, uint256 interestRate, uint256 duration) external {
-    require(amount > 0, "Amount must be greater than zero");
-    require(interestRate > 0, "Interest rate must be greater than zero");
-    require(duration > 0, "Duration must be greater than zero");
+  ffunction requestLoan(uint256 amount, uint256 interestRate, uint256 duration) external {
+    require(amount > 0 && interestRate > 0 && duration > 0, "Invalid input values, check that amount, interest rate and duration is greater than 0 ");
 
     uint256 endTime = block.timestamp + duration;
 
@@ -257,9 +296,7 @@ Borrowers can use this feature to request a loan. It takes the loan amount, inte
 ```solidity
   function repayLoan(uint256 loanId) external {
     Loan storage loan = loans[loanId];
-
-    require(msg.sender == loan.borrower, "Only borrower can repay the loan");
-    require(!loan.repaid, "Loan already repaid");
+    require(loanId < loans.length && msg.sender == loan.borrower && !loan.repaid, "ERROR: Invalid loan ID OR YOU ARE NOT THE ONE THAT BORROWED THE LOAN OR you have already repaid this loan");
 
     uint256 amount = loan.amount + (loan.amount * loan.interestRate / 100);
     balances[msg.sender] -= amount;
@@ -283,27 +320,24 @@ Users can utilize this function to deposit cUSD into their account balance. It r
 
 ```solidity
  function withdraw(uint256 amount) external {
-    require(amount > 0, "Withdraw amount must be greater than zero");
-    require(amount <= balances[msg.sender], "Insufficient balance");
+     require(amount > 0 && amount <= balances[msg.sender], "Invalid withdraw amount");
 
     balances[msg.sender] -= amount;
 
     (bool success, ) = msg.sender.call{value: amount}("");
     require(success, "Withdrawal failed");
-}
+  }
 ```
 
 The `withdraw` function allows a user to withdraw funds from their balance in the microlending platform. The function takes a `uint256` parameter `amount` which represents the amount of funds the user wishes to withdraw.
 
-The first line of the function contains a `require` statement that checks if the amount is greater than 0. If the `amount` is not greater than 0, the function will revert with the error message "Withdraw amount must be greater than zero".
+The require statement checks that the amount is greater than zero and lesser than the senders balance
 
-The second line of the function contains another `require` statement that checks if the `amount` is less than or equal to the balance of the user (`msg.sender`) in the `balances` mapping. If the user does not have enough funds to withdraw the requested `amount`, the function will revert with the error message "Insufficient balance".
+The second line of the function subtracts the `amount` from the balance of the user in the `balances` mapping. This ensures that the user's balance is updated to reflect the withdrawal.
 
-The third line of the function subtracts the `amount` from the balance of the user in the `balances` mapping. This ensures that the user's balance is updated to reflect the withdrawal.
+The third line of the function uses the `call` function to send the `amount` of funds to the user's address (`msg.sender`). The `call` function returns a tuple of type (`bool, bytes`). The `bool` variable `success` will be `true` if the call was successful, and `false` otherwise. The second variable is ignored in this case.
 
-The fourth line of the function uses the `call` function to send the `amount` of funds to the user's address (`msg.sender`). The `call` function returns a tuple of type (`bool, bytes`). The `bool` variable `success` will be `true` if the call was successful, and `false` otherwise. The second variable is ignored in this case.
-
-The fifth line of the function contains a `require` statement that checks if the `call` was successful. If the `call` was not successful, the function will revert with the error message "Withdrawal failed".
+The fourth line of the function contains a `require` statement that checks if the `call` was successful. If the `call` was not successful, the function will revert with the error message "Withdrawal failed".
 
 In general, the `withdraw` function enables users to take money from their microlending platform balance as long as they have enough money to do so.
 
